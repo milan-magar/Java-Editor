@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Java Web Editor</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23f89820'/><stop offset='1' stop-color='%235382a1'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='url(%23g)'/><path d='M22 16q-2-5 1-9M32 14q-2-5 1-9M42 16q-2-5 1-9' stroke='%23fff' stroke-width='3' stroke-linecap='round' fill='none' opacity='0.85'/><path d='M16 24h28v14a12 12 0 0 1-12 12h-4a12 12 0 0 1-12-12z' fill='%23fff'/><path d='M44 28h4a7 7 0 0 1 0 14h-4' stroke='%23fff' stroke-width='4' fill='none'/></svg>">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+
+  :root {
+    --font-size: 15px;
+    --line-height: 1.65;
+    --pad-y: 14px;
+    --pad-x: 16px;
+    --mono: "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+    --bg: #1e1e1e;
+    --bg-panel: #252526;
+    --bg-elev: #2d2d30;
+    --border: #3c3c3c;
+    --fg: #d4d4d4;
+    --fg-muted: #858585;
+    --accent: #0e639c;
+    --accent-hover: #1177bb;
+    --gutter-bg: #1e1e1e;
+    --gutter-fg: #6e7681;
+    --selection: rgba(38, 79, 120, 0.65);
+    --ok: #4ec9b0;
+    --warn: #dcdcaa;
+
+    --tok-keyword: #569cd6;
+    --tok-string: #ce9178;
+    --tok-comment: #6a9955;
+    --tok-number: #b5cea8;
+    --tok-type: #4ec9b0;
+    --tok-literal: #569cd6;
+    --tok-annotation: #dcdcaa;
+    --tok-method: #dcdcaa;
+  }
+
+  [data-theme="light"] {
+    --bg: #ffffff;
+    --bg-panel: #f7f7f7;
+    --bg-elev: #ececec;
+    --border: #d4d4d4;
+    --fg: #1f1f1f;
+    --fg-muted: #8a8a8a;
+    --accent: #0e639c;
+    --accent-hover: #1177bb;
+    --gutter-bg: #f2f2f2;
+    --gutter-fg: #a0a0a0;
+    --selection: rgba(173, 214, 255, 0.65);
+    --ok: #098658;
+    --warn: #795e26;
+
+    --tok-keyword: #0000ff;
+    --tok-string: #a31515;
+    --tok-comment: #008000;
+    --tok-number: #098658;
+    --tok-type: #267f99;
+    --tok-literal: #0000ff;
+    --tok-annotation: #795e26;
+    --tok-method: #795e26;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    transition: background .2s ease, color .2s ease;
+    overflow: hidden;
+  }
+
+  /* ---------------- Top bar ---------------- */
+  .topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; }
+
+  .logo {
+    display: grid;
+    place-items: center;
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #f89820 0%, #5382a1 100%);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: -.5px;
+    box-shadow: 0 2px 8px rgba(248,152,32,.25);
+  }
+
+  .brand h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    white-space: nowrap;
+  }
+
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 10px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    transition: border-color .15s;
+  }
+  .field:focus-within { border-color: var(--accent); }
+
+  .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--fg-muted); }
+
+  .field input {
+    width: 110px;
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    font-size: 14px;
+    font-family: var(--mono);
+  }
+
+  .field .ext { color: var(--fg-muted); font-family: var(--mono); font-size: 13px; }
+
+  .field .auto-badge {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--fg-muted);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    opacity: .8;
+  }
+  .field .auto-badge[hidden] { display: none; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-elev);
+    color: var(--fg);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  .btn:hover { background: var(--border); }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn:disabled:hover { background: var(--bg-elev); }
+
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+  .btn.icon { padding: 0 10px; font-family: var(--mono); font-size: 12px; }
+  .btn.icon.help { font-weight: 700; font-size: 14px; padding: 0 11px; }
+
+  /* Folder button */
+  .btn.folder-btn { padding: 0 12px 0 10px; max-width: 220px; }
+  .btn.folder-btn .ico { font-size: 14px; line-height: 1; }
+  .btn.folder-btn .folder-name {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 140px;
+  }
+  .btn.folder-btn.unset .folder-name { color: var(--fg-muted); }
+  .btn.folder-btn.attention { border-color: var(--warn); color: var(--warn); }
+  .btn.folder-btn.attention .folder-name { color: var(--warn); }
+
+  /* ---------------- Editor ---------------- */
+  .editor-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-panel);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, .22);
+  }
+
+  .gutter {
+    flex: 0 0 auto;
+    overflow: hidden;
+    background: var(--gutter-bg);
+    border-right: 1px solid var(--border);
+    user-select: none;
+  }
+
+  .line-numbers {
+    padding: var(--pad-y) 12px var(--pad-y) 16px;
+    font-family: var(--mono);
+    font-size: var(--font-size);
+    line-height: var(--line-height);
+    font-variant-ligatures: none;
+    color: var(--gutter-fg);
+    text-align: right;
+    white-space: pre;
+    will-change: transform;
+  }
+
+  .editor-area { position: relative; flex: 1 1 auto; min-width: 0; }
+
+  .highlight,
+  .editor {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: var(--pad-y) var(--pad-x);
+    border: 0;
+    font-family: var(--mono);
+    font-size: var(--font-size);
+    line-height: var(--line-height);
+    font-variant-ligatures: none;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    white-space: pre;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .highlight {
+    overflow: hidden;
+    pointer-events: none;
+    background: transparent;
+    color: var(--fg);
+  }
+  .highlight code { display: block; font: inherit; color: inherit; }
+
+  .editor {
+    z-index: 1;
+    overflow: auto;
+    resize: none;
+    outline: none;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--fg);
+  }
+  .editor::placeholder { color: var(--fg-muted); }
+  .editor::selection { background: var(--selection); color: transparent; }
+
+  /* ---------------- Token colours ---------------- */
+  .tok-keyword    { color: var(--tok-keyword); }
+  .tok-string     { color: var(--tok-string); }
+  .tok-comment    { color: var(--tok-comment); font-style: italic; }
+  .tok-number     { color: var(--tok-number); }
+  .tok-type       { color: var(--tok-type); }
+  .tok-literal    { color: var(--tok-literal); }
+  .tok-annotation { color: var(--tok-annotation); }
+  .tok-method     { color: var(--tok-method); }
+
+  /* ---------------- Status bar ---------------- */
+  .statusbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    padding: 0 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--fg-muted);
+  }
+  .statusbar .spacer { flex: 1 1 auto; }
+  .statusbar .hint { opacity: .6; }
+  #statusState.saved  { color: var(--ok); }
+  #statusState.dirty  { color: var(--warn); }
+  #statusState.error  { color: #f48771; }
+  #statusFolder { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ---------------- Cheat-sheet modal ---------------- */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    padding: 20px;
+    display: grid;
+    place-items: center;
+    background: rgba(0, 0, 0, .55);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .18s ease, visibility .18s ease;
+  }
+  .modal-backdrop.open { opacity: 1; visibility: visible; }
+
+  .modal {
+    width: 100%;
+    max-width: 720px;
+    max-height: min(86vh, 760px);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
+    overflow: hidden;
+    transform: translateY(10px) scale(.98);
+    transition: transform .2s cubic-bezier(.2, .8, .3, 1);
+  }
+  .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elev);
+    flex: 0 0 auto;
+  }
+  .modal-head h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .modal-head h2 .emoji { font-size: 18px; }
+
+  .modal-close {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--fg);
+    font: inherit;
+    font-size: 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  .modal-close:hover { background: var(--border); }
+  .modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .modal-body {
+    padding: 18px 20px 24px;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    scrollbar-width: thin;
+  }
+  .modal-body::-webkit-scrollbar { width: 10px; }
+  .modal-body::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border: 3px solid var(--bg-panel);
+    border-radius: 6px;
+  }
+
+  .tips-section + .tips-section { margin-top: 22px; }
+
+  .tips-section h3 {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+
+  .tips-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+  }
+  .tips-list li {
+    display: grid;
+    grid-template-columns: minmax(150px, max-content) 1fr;
+    gap: 16px;
+    align-items: baseline;
+    padding: 7px 10px;
+    border-radius: 7px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    transition: background .12s ease;
+  }
+  .tips-list li:hover { background: var(--bg-elev); }
+  .tips-list li .keys { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .tips-list li .keys .sep { color: var(--fg-muted); font-size: 11px; padding: 0 1px; }
+
+  kbd {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 4px 7px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--bg-elev);
+    color: var(--fg);
+    white-space: nowrap;
+    box-shadow: 0 1px 0 rgba(0,0,0,.15);
+  }
+
+  .tips-note {
+    margin-top: 24px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    background: var(--bg-elev);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--fg);
+  }
+  .tips-note strong { color: var(--accent); }
+  .tips-note .emoji { font-size: 15px; margin-right: 4px; }
+
+  @media (max-width: 900px) {
+    .brand h1 { display: none; }
+    .statusbar .hint { display: none; }
+  }
+  @media (max-width: 760px) {
+    body { padding: 10px; gap: 8px; }
+    .field input { width: 76px; }
+    .btn { padding: 0 10px; }
+    .btn.folder-btn .folder-name { max-width: 90px; }
+    .field .auto-badge { display: none; }
+    .tips-list li { grid-template-columns: 1fr; gap: 4px; }
+    .modal-backdrop { padding: 8px; }
+  }
+</style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">{ }</span>
+      <h1>Java Web Editor</h1>
+    </div>
+
+    <div class="toolbar">
+      <label class="field" for="fileName">
+        <span class="field-label">File</span>
+        <input type="text" id="fileName" value="Main" spellcheck="false" autocomplete="off">
+        <span class="ext">.java</span>
+        <span class="auto-badge" id="autoBadge" title="File name follows the public class in your code">auto</span>
+      </label>
+
+      <button class="btn folder-btn unset" id="folderBtn" type="button"
+              title="Choose the folder where files will be saved">
+        <span class="ico">📁</span>
+        <span class="folder-name" id="folderName">No folder</span>
+      </button>
+
+      <button class="btn" id="openBtn" type="button" title="Open a .java file">Open</button>
+      <button class="btn primary" id="saveBtn" type="button" title="Save (Ctrl+S)">Save</button>
+      <button class="btn" id="saveAsBtn" type="button" title="Save to a different location">Save As…</button>
+      <button class="btn" id="copyBtn" type="button" title="Copy all code">Copy</button>
+      <button class="btn" id="clearBtn" type="button" title="Clear the editor">Clear</button>
+      <button class="btn icon" id="themeBtn" type="button" title="Toggle light / dark theme">☀️</button>
+      <button class="btn icon" id="fontDown" type="button" title="Smaller font">A−</button>
+      <button class="btn icon" id="fontUp" type="button" title="Larger font">A+</button>
+      <button class="btn icon help" id="tipsBtn" type="button" title="Shortcuts & tips (F1)">?</button>
+
+      <input type="file" id="fileInput" accept=".java,.txt,text/plain" hidden>
+    </div>
+  </header>
+
+  <main class="editor-shell">
+    <div class="gutter"><div class="line-numbers" id="lineNumbers">1</div></div>
+    <div class="editor-area">
+      <pre class="highlight" id="highlight" aria-hidden="true"><code id="highlightCode"></code></pre>
+      <textarea id="editor" class="editor" spellcheck="false" wrap="off"
+                autocomplete="off" autocorrect="off" autocapitalize="off"
+                placeholder="Write your Java code here..."></textarea>
+    </div>
+  </main>
+
+  <footer class="statusbar">
+    <span id="statusPos">Ln 1, Col 1</span>
+    <span id="statusSel"></span>
+    <span id="statusLines">1 line</span>
+    <span id="statusChars">0 chars</span>
+    <span id="statusFolder"></span>
+    <span class="spacer"></span>
+    <span id="statusState">Ready</span>
+    <span class="hint">Tab · Ctrl+/ · Ctrl+S · Ctrl+D · Alt+↑↓ · F1 for help</span>
+  </footer>
+
+  <!-- ============================ Shortcuts & Tips modal ============================ -->
+  <div class="modal-backdrop" id="tipsBackdrop" role="dialog" aria-modal="true" aria-labelledby="tipsTitle">
+    <div class="modal">
+      <header class="modal-head">
+        <h2 id="tipsTitle"><span class="emoji">⌨️</span> Shortcuts &amp; Tips</h2>
+        <button class="modal-close" id="tipsClose" type="button" aria-label="Close (Esc)">✕</button>
+      </header>
+
+      <div class="modal-body">
+
+        <section class="tips-section">
+          <h3>Editing</h3>
+          <ul class="tips-list">
+            <li>
+              <span class="keys"><kbd>Tab</kbd></span>
+              <span>Indent the selected lines — or insert 4 spaces at the cursor.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Shift</kbd><span class="sep">+</span><kbd>Tab</kbd></span>
+              <span>Outdent the selected lines.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>/</kbd></span>
+              <span>Toggle <code>// line comments</code> on the current line or selection.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>D</kbd></span>
+              <span>Duplicate the current line or the selected block.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Alt</kbd><span class="sep">+</span><kbd>↑</kbd><span class="sep">/</span><kbd>↓</kbd></span>
+              <span>Move the current line (or selected block) up / down.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Enter</kbd></span>
+              <span>Auto-indent. After a <code>{</code> an extra level is added, and typing Enter between <code>{</code><code>}</code> expands into a block.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>(</kbd> <kbd>[</kbd> <kbd>{</kbd> <kbd>"</kbd> <kbd>'</kbd></span>
+              <span>Auto-close the pair — or wrap the current selection in the pair.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Backspace</kbd></span>
+              <span>On an empty pair (e.g. <code>|</code> inside <code>()</code>) deletes both characters at once.</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="tips-section">
+          <h3>File &amp; Folder</h3>
+          <ul class="tips-list">
+            <li>
+              <span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>S</kbd></span>
+              <span>Save to your chosen folder. Asks for a folder the very first time.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>Shift</kbd><span class="sep">+</span><kbd>S</kbd></span>
+              <span><strong>Save As…</strong> — write to a different location with the native file dialog.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>📁</kbd></span>
+              <span>Click the folder button to choose or change the save folder. Your choice is remembered between visits.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Open</kbd></span>
+              <span>Load a <code>.java</code> file from disk into the editor.</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="tips-section">
+          <h3>File name</h3>
+          <ul class="tips-list">
+            <li>
+              <span class="keys"><kbd>auto</kbd></span>
+              <span>The file name follows the <code>public class</code> (or <code>interface</code>, <code>enum</code>, <code>record</code>) in your code, so <code>javac</code> is always happy.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>type</kbd></span>
+              <span>Type in the <strong>File</strong> field to override the name manually. The <em>auto</em> badge disappears.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>clear</kbd></span>
+              <span>Clear the File field to re-enable automatic tracking.</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="tips-section">
+          <h3>Editor</h3>
+          <ul class="tips-list">
+            <li>
+              <span class="keys"><kbd>Selection</kbd></span>
+              <span>Selections are semi-transparent so the syntax colours stay readable underneath.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>A−</kbd> <kbd>A+</kbd> <kbd>☀️</kbd></span>
+              <span>Adjust font size and switch between dark / light theme — all remembered locally.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>Copy</kbd></span>
+              <span>Copy the whole buffer to the clipboard in one click.</span>
+            </li>
+            <li>
+              <span class="keys"><kbd>F1</kbd></span>
+              <span>Open this cheat sheet. Press <kbd>Esc</kbd> or click outside to close.</span>
+            </li>
+          </ul>
+        </section>
+
+        <div class="tips-note">
+          <span class="emoji">💡</span>
+          <strong>Tip:</strong> Your code, file name, theme, font size, and chosen folder are all saved locally, so the editor picks up exactly where you left off — even after closing the tab.
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================================================================
+   *  Elements
+   * ================================================================ */
+  const editor        = document.getElementById('editor');
+  const highlight     = document.getElementById('highlight');
+  const highlightCode = document.getElementById('highlightCode');
+  const lineNumbers   = document.getElementById('lineNumbers');
+  const fileNameInput = document.getElementById('fileName');
+  const autoBadge     = document.getElementById('autoBadge');
+  const fileInput     = document.getElementById('fileInput');
+  const statusPos     = document.getElementById('statusPos');
+  const statusSel     = document.getElementById('statusSel');
+  const statusLines   = document.getElementById('statusLines');
+  const statusChars   = document.getElementById('statusChars');
+  const statusState   = document.getElementById('statusState');
+  const statusFolder  = document.getElementById('statusFolder');
+  const themeBtn      = document.getElementById('themeBtn');
+  const folderBtn     = document.getElementById('folderBtn');
+  const folderName    = document.getElementById('folderName');
+  const saveBtn       = document.getElementById('saveBtn');
+  const saveAsBtn     = document.getElementById('saveAsBtn');
+  const tipsBtn       = document.getElementById('tipsBtn');
+  const tipsBackdrop  = document.getElementById('tipsBackdrop');
+  const tipsClose     = document.getElementById('tipsClose');
+
+  /* ================================================================
+   *  Constants
+   * ================================================================ */
+  const INDENT       = '    ';
+  const STORAGE_KEY  = 'java-web-editor.v1';
+  const DB_NAME      = 'java-web-editor';
+  const DB_STORE     = 'handles';
+  const DIR_KEY      = 'saveDirectory';
+  const DEFAULT_CODE =
+    'public class Main {\n' +
+    '    public static void main(String[] args) {\n' +
+    '        System.out.println("Hello, World!");\n' +
+    '    }\n' +
+    '}';
+
+  const KEYWORDS = new Set((
+    'abstract assert boolean break byte case catch char class const continue default do double else enum ' +
+    'extends final finally float for goto if implements import instanceof int interface long native new ' +
+    'package private protected public return short static strictfp super switch synchronized this throw ' +
+    'throws transient try void volatile while var record sealed permits yield'
+  ).split(' '));
+
+  const LITERALS = new Set(['true', 'false', 'null']);
+
+  const OPENERS = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
+  const CLOSERS = new Set([')', ']', '}', '"', "'"]);
+
+  const TOKEN_RE = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|(\b(?:0[xX][0-9a-fA-F_]+|\d[\d_]*(?:\.[\d_]+)?(?:[eE][+-]?\d+)?)[fFdDlL]?\b)|(@[A-Za-z_$][\w$]*)|([A-Za-z_$][\w$]*)/g;
+
+  /* ================================================================
+   *  Feature detection
+   * ================================================================ */
+  const CAN_PICK_DIR  = typeof window.showDirectoryPicker === 'function';
+  const CAN_PICK_FILE = typeof window.showSaveFilePicker === 'function';
+
+  /* ================================================================
+   *  State
+   * ================================================================ */
+  const state = { fontSize: 15, theme: 'dark' };
+
+  let dirHandle = null;
+  let dirNeedsPermission = false;
+  let lastSavedText = null;
+  let userEditedFileName = false;
+
+  /* ================================================================
+   *  Class-name detection → dynamic file name
+   * ================================================================ */
+  const PUBLIC_TYPE_RE =
+    /\bpublic\s+(?:final\s+|abstract\s+|sealed\s+|non-sealed\s+|strictfp\s+)*(?:class|interface|enum|record)\s+([A-Za-z_$][\w$]*)/;
+  const ANY_TYPE_RE =
+    /\b(?:class|interface|enum|record)\s+([A-Za-z_$][\w$]*)/;
+
+  function detectMainClassName(code) {
+    const stripped = code
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/\/\/[^\n]*/g, ' ')
+      .replace(/"(?:\\.|[^"\\\n])*"/g, '""')
+      .replace(/'(?:\\.|[^'\\\n])*'/g, "''");
+
+    const pub = stripped.match(PUBLIC_TYPE_RE);
+    if (pub) return pub[1];
+
+    const any = stripped.match(ANY_TYPE_RE);
+    return any ? any[1] : null;
+  }
+
+  function syncFileNameFromCode() {
+    updateAutoBadge();
+    if (userEditedFileName) return;
+
+    const detected = detectMainClassName(editor.value);
+    if (detected && fileNameInput.value !== detected) {
+      fileNameInput.value = detected;
+      saveSoon();
+    }
+  }
+
+  function updateAutoBadge() {
+    autoBadge.hidden = userEditedFileName;
+  }
+
+  /* ================================================================
+   *  Cheat-sheet modal
+   * ================================================================ */
+  let lastFocusBeforeTips = null;
+
+  function openTips() {
+    if (tipsBackdrop.classList.contains('open')) return;
+    lastFocusBeforeTips = document.activeElement;
+    tipsBackdrop.classList.add('open');
+    setTimeout(() => tipsClose.focus(), 40);
+  }
+
+  function closeTips() {
+    if (!tipsBackdrop.classList.contains('open')) return;
+    tipsBackdrop.classList.remove('open');
+    // Return focus to the editor (or whatever had it) once hidden
+    setTimeout(() => {
+      const target = (lastFocusBeforeTips && document.contains(lastFocusBeforeTips))
+        ? lastFocusBeforeTips
+        : editor;
+      target.focus();
+    }, 180);
+  }
+
+  tipsBtn.addEventListener('click', openTips);
+  tipsClose.addEventListener('click', closeTips);
+
+  tipsBackdrop.addEventListener('click', e => {
+    if (e.target === tipsBackdrop) closeTips();
+  });
+
+  // Global shortcut: F1 toggles the cheat sheet, Esc closes it.
+  document.addEventListener('keydown', e => {
+    if (e.key === 'F1') {
+      e.preventDefault();
+      tipsBackdrop.classList.contains('open') ? closeTips() : openTips();
+      return;
+    }
+    if (e.key === 'Escape' && tipsBackdrop.classList.contains('open')) {
+      e.preventDefault();
+      closeTips();
+    }
+  });
+
+  /* ================================================================
+   *  IndexedDB — stores the FileSystemDirectoryHandle across reloads
+   * ================================================================ */
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror   = () => reject(req.error);
+    });
+  }
+
+  function idbSet(key, value) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).put(value, key);
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror    = () => { db.close(); reject(tx.error); };
+    }));
+  }
+
+  function idbGet(key) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readonly');
+      const req = tx.objectStore(DB_STORE).get(key);
+      req.onsuccess = () => { db.close(); resolve(req.result); };
+      req.onerror   = () => { db.close(); reject(req.error); };
+    }));
+  }
+
+  function idbDelete(key) {
+    return openDB().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, 'readwrite');
+      tx.objectStore(DB_STORE).delete(key);
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror    = () => { db.close(); reject(tx.error); };
+    })).catch(() => {});
+  }
+
+  /* ================================================================
+   *  Folder handling
+   * ================================================================ */
+  const PERM_OPTS = { mode: 'readwrite' };
+
+  async function hasPermission(handle) {
+    if (!handle || typeof handle.queryPermission !== 'function') return false;
+    try { return (await handle.queryPermission(PERM_OPTS)) === 'granted'; }
+    catch (err) { return false; }
+  }
+
+  async function ensurePermission(handle) {
+    if (!handle) return false;
+    if (await hasPermission(handle)) return true;
+    if (typeof handle.requestPermission !== 'function') return false;
+    try { return (await handle.requestPermission(PERM_OPTS)) === 'granted'; }
+    catch (err) { return false; }
+  }
+
+  function updateFolderUI() {
+    if (dirHandle) {
+      folderName.textContent = dirHandle.name;
+      folderBtn.classList.remove('unset');
+      folderBtn.title = 'Save folder: ' + dirHandle.name + '\nClick to change';
+      statusFolder.textContent = '📁 ' + dirHandle.name;
+      folderBtn.classList.toggle('attention', dirNeedsPermission);
+    } else {
+      folderName.textContent = CAN_PICK_DIR ? 'No folder' : 'Unsupported';
+      folderBtn.classList.add('unset');
+      folderBtn.title = CAN_PICK_DIR
+        ? 'Choose the folder where files will be saved'
+        : 'Your browser does not support folder saving — files will download normally';
+      statusFolder.textContent = '';
+      folderBtn.classList.remove('attention');
+      if (!CAN_PICK_DIR) folderBtn.disabled = true;
+    }
+  }
+
+  async function chooseFolder() {
+    if (!CAN_PICK_DIR) {
+      setStateMessage('Folder picking is not supported in this browser', 'error');
+      return false;
+    }
+
+    let handle;
+    try {
+      handle = await window.showDirectoryPicker({
+        id: 'java-web-editor-folder',
+        mode: 'readwrite',
+        startIn: dirHandle || 'documents'
+      });
+    } catch (err) {
+      if (err && err.name === 'AbortError') return false;
+      setStateMessage('Could not open the folder picker', 'error');
+      return false;
+    }
+
+    if (!await ensurePermission(handle)) {
+      setStateMessage('Write permission was denied for that folder', 'error');
+      return false;
+    }
+
+    dirHandle = handle;
+    dirNeedsPermission = false;
+
+    try { await idbSet(DIR_KEY, handle); } catch (err) { /* not fatal */ }
+
+    updateFolderUI();
+    setStateMessage('Folder set: ' + handle.name, 'saved');
+    return true;
+  }
+
+  async function forgetFolder() {
+    dirHandle = null;
+    dirNeedsPermission = false;
+    await idbDelete(DIR_KEY);
+    updateFolderUI();
+  }
+
+  async function restoreFolder() {
+    if (!CAN_PICK_DIR) { updateFolderUI(); return; }
+    try {
+      const handle = await idbGet(DIR_KEY);
+      if (handle && typeof handle.queryPermission === 'function') {
+        dirHandle = handle;
+        dirNeedsPermission = !(await hasPermission(handle));
+        updateFolderUI();
+        return;
+      }
+    } catch (err) { /* fall through */ }
+    updateFolderUI();
+  }
+
+  /* ================================================================
+   *  Saving
+   * ================================================================ */
+  function currentFileName() {
+    const raw = (fileNameInput.value || '').trim().replace(/\.java$/i, '');
+    if (raw) return raw + '.java';
+
+    const detected = detectMainClassName(editor.value);
+    return (detected || 'Main') + '.java';
+  }
+
+  async function writeToFolder(dir, name, text) {
+    const fileHandle = await dir.getFileHandle(name, { create: true });
+    const writable   = await fileHandle.createWritable();
+    await writable.write(text);
+    await writable.close();
+  }
+
+  function downloadViaAnchor(name, text) {
+    const blob = new Blob([text], { type: 'text/x-java-source;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function save(forcePicker) {
+    const name = currentFileName();
+    const code = editor.value;
+
+    if (!forcePicker) {
+      if (!dirHandle && CAN_PICK_DIR) {
+        const ok = await chooseFolder();
+        if (!ok) return;
+      }
+
+      if (dirHandle) {
+        let granted = await hasPermission(dirHandle);
+        if (!granted) granted = await ensurePermission(dirHandle);
+
+        if (granted) {
+          try {
+            await writeToFolder(dirHandle, name, code);
+            markSaved();
+            setStateMessage('Saved to ' + dirHandle.name + '/' + name, 'saved');
+            return;
+          } catch (err) {
+            await forgetFolder();
+            setStateMessage('Folder unavailable — please choose it again', 'error');
+            return;
+          }
+        } else {
+          dirNeedsPermission = true;
+          updateFolderUI();
+          setStateMessage('Permission needed for "' + dirHandle.name + '" — click Save again', 'error');
+          return;
+        }
+      }
+    }
+
+    if (CAN_PICK_FILE) {
+      try {
+        const opts = {
+          suggestedName: name,
+          types: [{ description: 'Java source file', accept: { 'text/x-java-source': ['.java'] } }]
+        };
+        if (dirHandle) opts.startIn = dirHandle;
+
+        const handle   = await window.showSaveFilePicker(opts);
+        const writable = await handle.createWritable();
+        await writable.write(code);
+        await writable.close();
+
+        markSaved();
+        setStateMessage('Saved ' + handle.name, 'saved');
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+      }
+    }
+
+    downloadViaAnchor(name, code);
+    markSaved();
+    setStateMessage('Downloaded ' + name, 'saved');
+  }
+
+  /* ================================================================
+   *  Syntax highlighting
+   * ================================================================ */
+  function esc(s) {
+    return s.replace(/[&<>]/g, c => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
+  }
+
+  function highlightSource(src) {
+    let html = '';
+    let last = 0;
+    let m;
+    TOKEN_RE.lastIndex = 0;
+
+    while ((m = TOKEN_RE.exec(src)) !== null) {
+      if (m.index > last) html += esc(src.slice(last, m.index));
+
+      const full = m[0];
+      const [, comment, str, num, anno, ident] = m;
+      let cls = null;
+
+      if (comment)      cls = 'tok-comment';
+      else if (str)     cls = 'tok-string';
+      else if (num)     cls = 'tok-number';
+      else if (anno)    cls = 'tok-annotation';
+      else if (ident) {
+        if (KEYWORDS.has(ident))                     cls = 'tok-keyword';
+        else if (LITERALS.has(ident))                cls = 'tok-literal';
+        else if (/^[A-Z]/.test(ident))               cls = 'tok-type';
+        else if (src[m.index + full.length] === '(') cls = 'tok-method';
+      }
+
+      html += cls ? '<span class="' + cls + '">' + esc(full) + '</span>' : esc(full);
+      last = m.index + full.length;
+    }
+
+    html += esc(src.slice(last));
+    return html;
+  }
+
+  /* ================================================================
+   *  Rendering
+   * ================================================================ */
+  let renderQueued = false;
+
+  function queueRender() {
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => { renderQueued = false; render(); });
+  }
+
+  function render() {
+    const src = editor.value;
+
+    let html = highlightSource(src);
+    if (src.endsWith('\n')) html += ' ';
+    highlightCode.innerHTML = html;
+
+    const count = src.split('\n').length;
+    if (lineNumbers.dataset.count !== String(count)) {
+      lineNumbers.dataset.count = String(count);
+      const buf = [];
+      for (let i = 1; i <= count; i++) buf.push(i);
+      lineNumbers.textContent = buf.join('\n');
+    }
+
+    syncScroll();
+    updateStatus();
+    syncFileNameFromCode();
+  }
+
+  function syncScroll() {
+    highlight.scrollTop  = editor.scrollTop;
+    highlight.scrollLeft = editor.scrollLeft;
+    lineNumbers.style.transform = 'translateY(' + (-editor.scrollTop) + 'px)';
+  }
+
+  function updateStatus() {
+    const v = editor.value;
+    const s = editor.selectionStart;
+    const e = editor.selectionEnd;
+
+    const before = v.slice(0, s);
+    const line = before.split('\n').length;
+    const col  = s - before.lastIndexOf('\n');
+
+    statusPos.textContent   = 'Ln ' + line + ', Col ' + col;
+    statusSel.textContent   = e > s ? 'Sel ' + (e - s) : '';
+    statusLines.textContent = v.split('\n').length + ' lines';
+    statusChars.textContent = v.length + ' chars';
+  }
+
+  let messageTimer = null;
+
+  function setStateMessage(msg, kind) {
+    statusState.textContent = msg;
+    statusState.className = kind || '';
+    clearTimeout(messageTimer);
+    messageTimer = setTimeout(() => { statusState.className = ''; refreshDirty(); }, 2200);
+  }
+
+  function markSaved() {
+    lastSavedText = editor.value;
+    refreshDirty();
+  }
+
+  function refreshDirty() {
+    if (messageTimer && statusState.className) return;
+    if (lastSavedText === null) { statusState.textContent = 'Ready'; statusState.className = ''; return; }
+    const dirty = editor.value !== lastSavedText;
+    statusState.textContent = dirty ? '● Unsaved changes' : 'All changes saved';
+    statusState.className   = dirty ? 'dirty' : 'saved';
+  }
+
+  /* ================================================================
+   *  Edit helper — keeps native undo stack alive via execCommand
+   * ================================================================ */
+  function applyEdit(start, end, text, selStart, selEnd) {
+    if (start === end && text === '') return;
+
+    editor.focus();
+    editor.setSelectionRange(start, end);
+
+    let ok = false;
+    try {
+      ok = text === ''
+        ? document.execCommand('delete', false, null)
+        : document.execCommand('insertText', false, text);
+    } catch (err) { ok = false; }
+
+    if (!ok) {
+      const v = editor.value;
+      editor.value = v.slice(0, start) + text + v.slice(end);
+    }
+
+    if (selStart === undefined) selStart = start + text.length;
+    if (selEnd === undefined)   selEnd = selStart;
+    editor.setSelectionRange(selStart, selEnd);
+
+    queueRender();
+    saveSoon();
+    refreshDirty();
+  }
+
+  /* ================================================================
+   *  Line-block offset remapping
+   * ================================================================ */
+  function mapOffset(o, infos) {
+    let start = 0;
+    let acc = 0;
+
+    for (let i = 0; i < infos.length; i++) {
+      const info = infos[i];
+      const end = start + info.len;
+
+      if (o <= end) {
+        const within = o - start;
+        let d = 0;
+        if (info.delta > 0) {
+          if (within >= info.pos) d = info.delta;
+        } else if (info.delta < 0) {
+          d = -Math.min(-info.delta, Math.max(0, within - info.pos));
+        }
+        return o + acc + d;
+      }
+
+      acc += info.delta;
+      start = end + 1;
+    }
+    return o + acc;
+  }
+
+  function transformLines(fn) {
+    const val = editor.value;
+    const s = editor.selectionStart;
+    const en = editor.selectionEnd;
+
+    const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+    let lineEnd = val.indexOf('\n', en);
+    if (lineEnd === -1) lineEnd = val.length;
+    if (en > s && val[en - 1] === '\n') lineEnd = en - 1;
+
+    const lines = val.slice(lineStart, lineEnd).split('\n');
+    const infos = [];
+
+    const newLines = lines.map(line => {
+      const r = fn(line);
+      infos.push({ len: line.length, pos: r.pos, delta: r.delta });
+      return r.text;
+    });
+
+    const newBlock = newLines.join('\n');
+    const newS = lineStart + mapOffset(s - lineStart, infos);
+    const newE = lineStart + mapOffset(en - lineStart, infos);
+
+    applyEdit(lineStart, lineEnd, newBlock, newS, newE);
+  }
+
+  /* ================================================================
+   *  Commands
+   * ================================================================ */
+  function handleTab(shift) {
+    const s = editor.selectionStart;
+    const en = editor.selectionEnd;
+
+    if (s === en && !shift) {
+      applyEdit(s, en, INDENT);
+      return;
+    }
+
+    transformLines(line => {
+      if (!shift) return { text: INDENT + line, pos: 0, delta: INDENT.length };
+
+      const m = line.match(/^(\t| {1,4})/);
+      if (!m) return { text: line, pos: 0, delta: 0 };
+      return { text: line.slice(m[0].length), pos: 0, delta: -m[0].length };
+    });
+  }
+
+  function handleEnter() {
+    const val = editor.value;
+    const s = editor.selectionStart;
+    const en = editor.selectionEnd;
+
+    const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+    const lineText  = val.slice(lineStart, s);
+    const indent    = (lineText.match(/^[ \t]*/) || [''])[0];
+    const trimmed   = lineText.replace(/[ \t]+$/, '');
+
+    if (s === en && val[s] === '}' && /\{\s*$/.test(trimmed)) {
+      const insert = '\n' + indent + INDENT + '\n' + indent;
+      applyEdit(s, en, insert, s + 1 + indent.length + INDENT.length);
+      return;
+    }
+
+    const nextIndent = /\{\s*$/.test(trimmed) ? indent + INDENT : indent;
+    applyEdit(s, en, '\n' + nextIndent);
+  }
+
+  function toggleComment() {
+    const val = editor.value;
+    const s = editor.selectionStart;
+    const en = editor.selectionEnd;
+
+    const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+    let lineEnd = val.indexOf('\n', en);
+    if (lineEnd === -1) lineEnd = val.length;
+    if (en > s && val[en - 1] === '\n') lineEnd = en - 1;
+
+    const lines = val.slice(lineStart, lineEnd).split('\n');
+    const allCommented = lines.every(l => l.trim() === '' || /^\s*\/\//.test(l));
+
+    transformLines(line => {
+      if (allCommented) {
+        const m = line.match(/^(\s*)\/\/ ?/);
+        if (!m) return { text: line, pos: 0, delta: 0 };
+        return {
+          text: m[1] + line.slice(m[0].length),
+          pos: m[1].length,
+          delta: -(m[0].length - m[1].length)
+        };
+      }
+
+      if (line.trim() === '') return { text: line, pos: 0, delta: 0 };
+
+      const indentLen = (line.match(/^\s*/) || [''])[0].length;
+      return {
+        text: line.slice(0, indentLen) + '// ' + line.slice(indentLen),
+        pos: indentLen,
+        delta: 3
+      };
+    });
+  }
+
+  function duplicateLine() {
+    const val = editor.value;
+    const s = editor.selectionStart;
+    const en = editor.selectionEnd;
+
+    const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+    let lineEnd = val.indexOf('\n', en);
+    if (lineEnd === -1) lineEnd = val.length;
+
+    const block = val.slice(lineStart, lineEnd);
+    applyEdit(lineEnd, lineEnd, '\n' + block,
+              s + block.length + 1, en + block.length + 1);
+  }
+
+  function moveLine(dir) {
+    const val = editor.value;
+    const s = editor.selectionStart;
+
+    const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+    let lineEnd = val.indexOf('\n', s);
+    if (lineEnd === -1) lineEnd = val.length;
+
+    const line = val.slice(lineStart, lineEnd);
+
+    if (dir === -1) {
+      if (lineStart === 0) return;
+      const prevStart = val.lastIndexOf('\n', lineStart - 2) + 1;
+      const prevLine  = val.slice(prevStart, lineStart - 1);
+      applyEdit(prevStart, lineEnd, line + '\n' + prevLine, s - prevLine.length - 1);
+    } else {
+      if (lineEnd === val.length) return;
+      const nextEnd = val.indexOf('\n', lineEnd + 1);
+      const end = nextEnd === -1 ? val.length : nextEnd;
+      const nextLine = val.slice(lineEnd + 1, end);
+      applyEdit(lineStart, end, nextLine + '\n' + line, s + nextLine.length + 1);
+    }
+  }
+
+  /* ================================================================
+   *  Keyboard handling in the editor
+   * ================================================================ */
+  editor.addEventListener('keydown', e => {
+    if (e.isComposing) return;
+
+    const val = editor.value;
+    const s   = editor.selectionStart;
+    const en  = editor.selectionEnd;
+    const mod = e.ctrlKey || e.metaKey;
+
+    if (mod && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (k === 's') {
+        e.preventDefault();
+        save(e.shiftKey);
+        return;
+      }
+      if (k === 'd') { e.preventDefault(); duplicateLine();   return; }
+      if (e.key === '/') { e.preventDefault(); toggleComment(); return; }
+    }
+
+    if (e.altKey && !mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      moveLine(e.key === 'ArrowUp' ? -1 : 1);
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      handleTab(e.shiftKey);
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleEnter();
+      return;
+    }
+
+    if (e.key === 'Backspace' && s === en && s > 0) {
+      const prev = val[s - 1];
+      if (OPENERS[prev] && OPENERS[prev] === val[s]) {
+        e.preventDefault();
+        applyEdit(s - 1, s + 1, '', s - 1);
+        return;
+      }
+    }
+
+    if (CLOSERS.has(e.key) && s === en && val[s] === e.key) {
+      e.preventDefault();
+      editor.setSelectionRange(s + 1, s + 1);
+      updateStatus();
+      return;
+    }
+
+    if (OPENERS[e.key] && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+
+      const close    = OPENERS[e.key];
+      const selected = val.slice(s, en);
+
+      if (selected) {
+        applyEdit(s, en, e.key + selected + close, s + 1, en + 1);
+        return;
+      }
+
+      const next = val[s] || '';
+      const isQuote = e.key === '"' || e.key === "'";
+
+      if (isQuote && /[\w"'`]/.test(next)) {
+        applyEdit(s, en, e.key);
+      } else {
+        applyEdit(s, en, e.key + close, s + 1);
+      }
+    }
+  });
+
+  /* ================================================================
+   *  Input / selection listeners
+   * ================================================================ */
+  editor.addEventListener('input', () => { queueRender(); saveSoon(); refreshDirty(); });
+  editor.addEventListener('scroll', syncScroll, { passive: true });
+  editor.addEventListener('click', updateStatus);
+  editor.addEventListener('keyup', updateStatus);
+
+  document.addEventListener('selectionchange', () => {
+    if (document.activeElement === editor) updateStatus();
+  });
+
+  window.addEventListener('resize', syncScroll);
+
+  window.addEventListener('beforeunload', e => {
+    if (lastSavedText !== null && editor.value !== lastSavedText) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+  /* ================================================================
+   *  Toolbar actions
+   * ================================================================ */
+  saveBtn.addEventListener('click', () => save(false));
+  saveAsBtn.addEventListener('click', () => save(true));
+  folderBtn.addEventListener('click', () => chooseFolder());
+
+  document.getElementById('openBtn').addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      editor.value = String(reader.result).replace(/\r\n?/g, '\n');
+      userEditedFileName = true;
+      fileNameInput.value = file.name.replace(/\.java$/i, '') || 'Main';
+
+      editor.focus();
+      editor.setSelectionRange(0, 0);
+      markSaved();
+      queueRender();
+      saveState();
+      setStateMessage('Opened ' + file.name, 'saved');
+    };
+    reader.readAsText(file);
+    fileInput.value = '';
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(editor.value);
+      setStateMessage('Copied to clipboard', 'saved');
+    } catch (err) {
+      editor.select();
+      try { document.execCommand('copy'); setStateMessage('Copied to clipboard', 'saved'); }
+      catch (e) { setStateMessage('Copy failed', 'error'); }
+      editor.setSelectionRange(0, 0);
+    }
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (!editor.value.trim() || confirm('Clear the editor? This cannot be undone.')) {
+      editor.value = '';
+      editor.focus();
+      editor.setSelectionRange(0, 0);
+      queueRender();
+      saveState();
+      refreshDirty();
+    }
+  });
+
+  themeBtn.addEventListener('click', () => {
+    setTheme(state.theme === 'dark' ? 'light' : 'dark');
+  });
+
+  document.getElementById('fontUp').addEventListener('click', () => setFontSize(state.fontSize + 1));
+  document.getElementById('fontDown').addEventListener('click', () => setFontSize(state.fontSize - 1));
+
+  fileNameInput.addEventListener('input', () => {
+    userEditedFileName = fileNameInput.value.trim().length > 0;
+    updateAutoBadge();
+    if (!userEditedFileName) syncFileNameFromCode();
+    saveSoon();
+  });
+
+  function setTheme(theme) {
+    state.theme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    saveState();
+  }
+
+  function setFontSize(px) {
+    state.fontSize = Math.max(11, Math.min(28, px));
+    document.documentElement.style.setProperty('--font-size', state.fontSize + 'px');
+    queueRender();
+    saveState();
+  }
+
+  /* ================================================================
+   *  Persistence
+   * ================================================================ */
+  let saveTimer = null;
+
+  function saveSoon() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveState, 400);
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        code: editor.value,
+        fileName: fileNameInput.value,
+        autoFileName: !userEditedFileName,
+        fontSize: state.fontSize,
+        theme: state.theme
+      }));
+    } catch (err) { /* ignore */ }
+  }
+
+  function loadState() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
+    catch (err) { saved = null; }
+
+    if (saved && typeof saved.code === 'string') {
+      editor.value = saved.code;
+      fileNameInput.value = saved.fileName || 'Main';
+      userEditedFileName = saved.autoFileName === false;
+      state.fontSize = saved.fontSize || 15;
+      state.theme = saved.theme || 'dark';
+    } else {
+      editor.value = DEFAULT_CODE;
+      userEditedFileName = false;
+    }
+
+    document.documentElement.style.setProperty('--font-size', state.fontSize + 'px');
+    setTheme(state.theme);
+    updateAutoBadge();
+    render();
+    markSaved();
+  }
+
+  /* ================================================================
+   *  Boot
+   * ================================================================ */
+  loadState();
+  editor.focus();
+  editor.setSelectionRange(0, 0);
+
+  restoreFolder().then(() => {
+    if (dirHandle && dirNeedsPermission) {
+      setStateMessage('Click Save to reconnect to "' + dirHandle.name + '"', 'dirty');
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
