@@ -10,7 +10,7 @@
 
   :root {
     --font-size: 15px;
-    --line-height: 1.65;
+    --line-height: 1.42;
     --pad-y: 14px;
     --pad-x: 16px;
     --mono: "JetBrains Mono", "Fira Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
@@ -26,6 +26,8 @@
     --gutter-bg: #1e1e1e;
     --gutter-fg: #6e7681;
     --selection: rgba(38, 79, 120, 0.65);
+    --guide: rgba(255, 255, 255, 0.32);      /* darker */
+    --guide-width: 2px;                       /* thicker */
     --ok: #4ec9b0;
     --warn: #dcdcaa;
 
@@ -51,6 +53,7 @@
     --gutter-bg: #f2f2f2;
     --gutter-fg: #a0a0a0;
     --selection: rgba(173, 214, 255, 0.65);
+    --guide: rgba(0, 0, 0, 0.30);            /* darker */
     --ok: #098658;
     --warn: #795e26;
 
@@ -187,6 +190,7 @@
 
   .btn.icon { padding: 0 10px; font-family: var(--mono); font-size: 12px; }
   .btn.icon.help { font-weight: 700; font-size: 14px; padding: 0 11px; }
+  .btn.icon.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
   /* Folder button */
   .btn.folder-btn { padding: 0 12px 0 10px; max-width: 220px; }
@@ -248,8 +252,8 @@
     font-size: var(--font-size);
     line-height: var(--line-height);
     font-variant-ligatures: none;
-    tab-size: 4;
-    -moz-tab-size: 4;
+    tab-size: 2;
+    -moz-tab-size: 2;
     white-space: pre;
     overflow-wrap: normal;
     word-break: normal;
@@ -263,6 +267,27 @@
   }
   .highlight code { display: block; font: inherit; color: inherit; }
 
+  /* ---- Indent guides layer ---- */
+  .guides {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .guides-track {
+    position: absolute;
+    inset: 0;
+    will-change: transform;
+  }
+  .guide {
+    position: absolute;
+    width: var(--guide-width);
+    background: var(--guide);
+    transform: translateX(-50%);   /* centre the line on its column */
+    transition: background .15s ease;
+  }
+
   .editor {
     z-index: 1;
     overflow: auto;
@@ -274,6 +299,8 @@
   }
   .editor::placeholder { color: var(--fg-muted); }
   .editor::selection { background: var(--selection); color: transparent; }
+
+  .editor-shell.no-guides .guides { display: none; }
 
   /* ---------------- Token colours ---------------- */
   .tok-keyword    { color: var(--tok-keyword); }
@@ -492,6 +519,7 @@
       <button class="btn" id="saveAsBtn" type="button" title="Save to a different location">Save As…</button>
       <button class="btn" id="copyBtn" type="button" title="Copy all code">Copy</button>
       <button class="btn" id="clearBtn" type="button" title="Clear the editor">Clear</button>
+      <button class="btn icon on" id="guidesBtn" type="button" title="Toggle indent guides">⫴</button>
       <button class="btn icon" id="themeBtn" type="button" title="Toggle light / dark theme">☀️</button>
       <button class="btn icon" id="fontDown" type="button" title="Smaller font">A−</button>
       <button class="btn icon" id="fontUp" type="button" title="Larger font">A+</button>
@@ -501,10 +529,11 @@
     </div>
   </header>
 
-  <main class="editor-shell">
+  <main class="editor-shell" id="editorShell">
     <div class="gutter"><div class="line-numbers" id="lineNumbers">1</div></div>
     <div class="editor-area">
       <pre class="highlight" id="highlight" aria-hidden="true"><code id="highlightCode"></code></pre>
+      <div class="guides" aria-hidden="true"><div class="guides-track" id="guidesTrack"></div></div>
       <textarea id="editor" class="editor" spellcheck="false" wrap="off"
                 autocomplete="off" autocorrect="off" autocapitalize="off"
                 placeholder="Write your Java code here..."></textarea>
@@ -535,100 +564,44 @@
         <section class="tips-section">
           <h3>Editing</h3>
           <ul class="tips-list">
-            <li>
-              <span class="keys"><kbd>Tab</kbd></span>
-              <span>Indent the selected lines — or insert 4 spaces at the cursor.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>Shift</kbd><span class="sep">+</span><kbd>Tab</kbd></span>
-              <span>Outdent the selected lines.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>/</kbd></span>
-              <span>Toggle <code>// line comments</code> on the current line or selection.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>D</kbd></span>
-              <span>Duplicate the current line or the selected block.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>Alt</kbd><span class="sep">+</span><kbd>↑</kbd><span class="sep">/</span><kbd>↓</kbd></span>
-              <span>Move the current line (or selected block) up / down.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>Enter</kbd></span>
-              <span>Auto-indent. After a <code>{</code> an extra level is added, and typing Enter between <code>{</code><code>}</code> expands into a block.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>(</kbd> <kbd>[</kbd> <kbd>{</kbd> <kbd>"</kbd> <kbd>'</kbd></span>
-              <span>Auto-close the pair — or wrap the current selection in the pair.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>Backspace</kbd></span>
-              <span>On an empty pair (e.g. <code>|</code> inside <code>()</code>) deletes both characters at once.</span>
-            </li>
+            <li><span class="keys"><kbd>Tab</kbd></span><span>Indent the selected lines — or insert 2 spaces at the cursor.</span></li>
+            <li><span class="keys"><kbd>Shift</kbd><span class="sep">+</span><kbd>Tab</kbd></span><span>Outdent the selected lines.</span></li>
+            <li><span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>/</kbd></span><span>Toggle <code>// line comments</code> on the current line or selection.</span></li>
+            <li><span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>D</kbd></span><span>Duplicate the current line or the selected block.</span></li>
+            <li><span class="keys"><kbd>Alt</kbd><span class="sep">+</span><kbd>↑</kbd><span class="sep">/</span><kbd>↓</kbd></span><span>Move the current line (or selected block) up / down.</span></li>
+            <li><span class="keys"><kbd>Enter</kbd></span><span>Auto-indent. After a <code>{</code> an extra level is added, and typing Enter between <code>{</code><code>}</code> expands into a block.</span></li>
+            <li><span class="keys"><kbd>(</kbd> <kbd>[</kbd> <kbd>{</kbd> <kbd>"</kbd> <kbd>'</kbd></span><span>Auto-close the pair — or wrap the current selection in the pair.</span></li>
+            <li><span class="keys"><kbd>Backspace</kbd></span><span>On an empty pair (e.g. <code>|</code> inside <code>()</code>) deletes both characters at once.</span></li>
           </ul>
         </section>
 
         <section class="tips-section">
           <h3>File &amp; Folder</h3>
           <ul class="tips-list">
-            <li>
-              <span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>S</kbd></span>
-              <span>Save to your chosen folder. Asks for a folder the very first time.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>Shift</kbd><span class="sep">+</span><kbd>S</kbd></span>
-              <span><strong>Save As…</strong> — write to a different location with the native file dialog.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>📁</kbd></span>
-              <span>Click the folder button to choose or change the save folder. Your choice is remembered between visits.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>Open</kbd></span>
-              <span>Load a <code>.java</code> file from disk into the editor.</span>
-            </li>
+            <li><span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>S</kbd></span><span>Save to your chosen folder. Asks for a folder the very first time.</span></li>
+            <li><span class="keys"><kbd>Ctrl</kbd><span class="sep">/</span><kbd>Cmd</kbd><span class="sep">+</span><kbd>Shift</kbd><span class="sep">+</span><kbd>S</kbd></span><span><strong>Save As…</strong> — write to a different location with the native file dialog.</span></li>
+            <li><span class="keys"><kbd>📁</kbd></span><span>Click the folder button to choose or change the save folder. Your choice is remembered between visits.</span></li>
+            <li><span class="keys"><kbd>Open</kbd></span><span>Load a <code>.java</code> file from disk into the editor.</span></li>
           </ul>
         </section>
 
         <section class="tips-section">
           <h3>File name</h3>
           <ul class="tips-list">
-            <li>
-              <span class="keys"><kbd>auto</kbd></span>
-              <span>The file name follows the <code>public class</code> (or <code>interface</code>, <code>enum</code>, <code>record</code>) in your code, so <code>javac</code> is always happy.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>type</kbd></span>
-              <span>Type in the <strong>File</strong> field to override the name manually. The <em>auto</em> badge disappears.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>clear</kbd></span>
-              <span>Clear the File field to re-enable automatic tracking.</span>
-            </li>
+            <li><span class="keys"><kbd>auto</kbd></span><span>The file name follows the <code>public class</code> (or <code>interface</code>, <code>enum</code>, <code>record</code>) in your code, so <code>javac</code> is always happy.</span></li>
+            <li><span class="keys"><kbd>type</kbd></span><span>Type in the <strong>File</strong> field to override the name manually. The <em>auto</em> badge disappears.</span></li>
+            <li><span class="keys"><kbd>clear</kbd></span><span>Clear the File field to re-enable automatic tracking.</span></li>
           </ul>
         </section>
 
         <section class="tips-section">
           <h3>Editor</h3>
           <ul class="tips-list">
-            <li>
-              <span class="keys"><kbd>Selection</kbd></span>
-              <span>Selections are semi-transparent so the syntax colours stay readable underneath.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>A−</kbd> <kbd>A+</kbd> <kbd>☀️</kbd></span>
-              <span>Adjust font size and switch between dark / light theme — all remembered locally.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>Copy</kbd></span>
-              <span>Copy the whole buffer to the clipboard in one click.</span>
-            </li>
-            <li>
-              <span class="keys"><kbd>F1</kbd></span>
-              <span>Open this cheat sheet. Press <kbd>Esc</kbd> or click outside to close.</span>
-            </li>
+            <li><span class="keys"><kbd>⫴</kbd></span><span>Toggle indent guides — the thin vertical lines that trace each nested block.</span></li>
+            <li><span class="keys"><kbd>Selection</kbd></span><span>Selections are semi-transparent so the syntax colours stay readable underneath.</span></li>
+            <li><span class="keys"><kbd>A−</kbd> <kbd>A+</kbd> <kbd>☀️</kbd></span><span>Adjust font size and switch between dark / light theme — all remembered locally.</span></li>
+            <li><span class="keys"><kbd>Copy</kbd></span><span>Copy the whole buffer to the clipboard in one click.</span></li>
+            <li><span class="keys"><kbd>F1</kbd></span><span>Open this cheat sheet. Press <kbd>Esc</kbd> or click outside to close.</span></li>
           </ul>
         </section>
 
@@ -652,6 +625,8 @@
   const highlight     = document.getElementById('highlight');
   const highlightCode = document.getElementById('highlightCode');
   const lineNumbers   = document.getElementById('lineNumbers');
+  const guidesTrack   = document.getElementById('guidesTrack');
+  const editorShell   = document.getElementById('editorShell');
   const fileNameInput = document.getElementById('fileName');
   const autoBadge     = document.getElementById('autoBadge');
   const fileInput     = document.getElementById('fileInput');
@@ -662,6 +637,7 @@
   const statusState   = document.getElementById('statusState');
   const statusFolder  = document.getElementById('statusFolder');
   const themeBtn      = document.getElementById('themeBtn');
+  const guidesBtn     = document.getElementById('guidesBtn');
   const folderBtn     = document.getElementById('folderBtn');
   const folderName    = document.getElementById('folderName');
   const saveBtn       = document.getElementById('saveBtn');
@@ -673,16 +649,17 @@
   /* ================================================================
    *  Constants
    * ================================================================ */
-  const INDENT       = '    ';
+  const INDENT       = '  ';            /* 2 spaces per indent level when typing */
+  const INDENT_UNIT  = 2;               /* fallback guide unit */
   const STORAGE_KEY  = 'java-web-editor.v1';
   const DB_NAME      = 'java-web-editor';
   const DB_STORE     = 'handles';
   const DIR_KEY      = 'saveDirectory';
   const DEFAULT_CODE =
     'public class Main {\n' +
-    '    public static void main(String[] args) {\n' +
-    '        System.out.println("Hello, World!");\n' +
-    '    }\n' +
+    '  public static void main(String[] args) {\n' +
+    '    System.out.println("Hello, World!");\n' +
+    '  }\n' +
     '}';
 
   const KEYWORDS = new Set((
@@ -708,7 +685,7 @@
   /* ================================================================
    *  State
    * ================================================================ */
-  const state = { fontSize: 15, theme: 'dark' };
+  const state = { fontSize: 15, theme: 'dark', guides: true };
 
   let dirHandle = null;
   let dirNeedsPermission = false;
@@ -767,7 +744,6 @@
   function closeTips() {
     if (!tipsBackdrop.classList.contains('open')) return;
     tipsBackdrop.classList.remove('open');
-    // Return focus to the editor (or whatever had it) once hidden
     setTimeout(() => {
       const target = (lastFocusBeforeTips && document.contains(lastFocusBeforeTips))
         ? lastFocusBeforeTips
@@ -783,7 +759,6 @@
     if (e.target === tipsBackdrop) closeTips();
   });
 
-  // Global shortcut: F1 toggles the cheat sheet, Esc closes it.
   document.addEventListener('keydown', e => {
     if (e.key === 'F1') {
       e.preventDefault();
@@ -797,7 +772,7 @@
   });
 
   /* ================================================================
-   *  IndexedDB — stores the FileSystemDirectoryHandle across reloads
+   *  IndexedDB
    * ================================================================ */
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -902,7 +877,6 @@
 
     dirHandle = handle;
     dirNeedsPermission = false;
-
     try { await idbSet(DIR_KEY, handle); } catch (err) { /* not fatal */ }
 
     updateFolderUI();
@@ -952,14 +926,12 @@
   function downloadViaAnchor(name, text) {
     const blob = new Blob([text], { type: 'text/x-java-source;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
-
     const a = document.createElement('a');
     a.href = url;
     a.download = name;
     document.body.appendChild(a);
     a.click();
     a.remove();
-
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
@@ -1063,6 +1035,165 @@
   }
 
   /* ================================================================
+   *  Indent-guide computation
+   * ================================================================ */
+  let charWidthCache = { fontSize: null, width: 0 };
+
+  function getCharWidth() {
+    const cs = getComputedStyle(editor);
+    if (charWidthCache.fontSize === cs.fontSize && charWidthCache.width) {
+      return charWidthCache.width;
+    }
+
+    const probe = document.createElement('span');
+    probe.style.cssText = 'position:absolute;visibility:hidden;top:-9999px;left:-9999px;' +
+                          'white-space:pre;padding:0;border:0;margin:0;';
+    probe.style.fontFamily = cs.fontFamily;
+    probe.style.fontSize   = cs.fontSize;
+    probe.style.fontWeight = cs.fontWeight;
+    probe.style.fontStyle  = cs.fontStyle;
+    probe.textContent = '0'.repeat(50);
+
+    document.body.appendChild(probe);
+    const w = probe.getBoundingClientRect().width / 50;
+    probe.remove();
+
+    charWidthCache = { fontSize: cs.fontSize, width: w };
+    return w;
+  }
+
+  /* --- math helpers --- */
+  function gcd(a, b) {
+    while (b) { const t = b; b = a % b; a = t; }
+    return a;
+  }
+
+  /**
+   * Auto-detect the indent unit used in the current code.
+   * The guide lines will be drawn every `unit` columns so a single
+   * indent level never produces two separate guide lines.
+   *
+   * Uses the GCD of all non-zero leading whitespace counts.  If that
+   * returns something silly (0, 1, > 8) we fall back to INDENT_UNIT.
+   */
+  function detectIndentUnit(lines) {
+    let g = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.trim() === '') continue;
+
+      const lead = line.match(/^[ \t]*/)[0];
+      let count = 0;
+      for (let j = 0; j < lead.length; j++) {
+        count += lead[j] === '\t' ? INDENT_UNIT : 1;
+      }
+      if (count > 0) {
+        g = g === 0 ? count : gcd(g, count);
+        if (g === 1) break;             // can't get smaller
+      }
+    }
+    if (g < 2 || g > 8) return INDENT_UNIT;
+    return g;
+  }
+
+  function computeGuides(lines, unit) {
+    const n = lines.length;
+    if (n === 0) return [];
+
+    const raw = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const line = lines[i];
+      if (line.trim() === '') { raw[i] = null; continue; }
+      const m = line.match(/^[ \t]*/)[0];
+      let count = 0;
+      for (const ch of m) count += ch === '\t' ? INDENT_UNIT : 1;
+      raw[i] = count;
+    }
+
+    const leading = raw.slice();
+    for (let i = 0; i < n; i++) {
+      if (leading[i] !== null) continue;
+      let prev = null, next = null;
+      for (let j = i - 1; j >= 0; j--) if (raw[j] !== null) { prev = raw[j]; break; }
+      for (let j = i + 1; j < n; j++) if (raw[j] !== null) { next = raw[j]; break; }
+      if (prev === null && next === null)      leading[i] = 0;
+      else if (prev === null)                  leading[i] = next;
+      else if (next === null)                  leading[i] = prev;
+      else                                     leading[i] = Math.max(prev, next);
+    }
+
+    let maxLeading = 0;
+    for (const l of leading) if (l > maxLeading) maxLeading = l;
+    const maxCols = Math.ceil(maxLeading / unit);
+
+    const counts = new Array(n).fill(0);
+    for (let c = 0; c < maxCols; c++) {
+      const pos = c * unit;
+      let i = 0;
+      while (i < n) {
+        if (leading[i] > pos) {
+          const start = i;
+          while (i < n && leading[i] > pos) i++;
+          const end = i - 1;
+          for (let j = start; j <= end; j++) counts[j] = c + 1;
+        } else {
+          i++;
+        }
+      }
+    }
+
+    return counts;
+  }
+
+  function renderGuides() {
+    if (!state.guides) {
+      if (guidesTrack.firstChild) guidesTrack.replaceChildren();
+      return;
+    }
+
+    const lines = editor.value.split('\n');
+    const unit  = detectIndentUnit(lines);
+    const counts = computeGuides(lines, unit);
+
+    const cs = getComputedStyle(editor);
+    const lineHeight = parseFloat(cs.lineHeight) || 20;
+    const padY = parseFloat(cs.paddingTop) || 0;
+    const padX = parseFloat(cs.paddingLeft) || 0;
+    const charWidth = getCharWidth();
+    const indentWidth = charWidth * unit;
+
+    let maxCol = 0;
+    for (const c of counts) if (c > maxCol) maxCol = c;
+    if (maxCol === 0) {
+      if (guidesTrack.firstChild) guidesTrack.replaceChildren();
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+
+    for (let c = 0; c < maxCol; c++) {
+      let blockStart = -1;
+      for (let i = 0; i <= counts.length; i++) {
+        const has = i < counts.length && counts[i] > c;
+        if (has && blockStart === -1) {
+          blockStart = i;
+        } else if (!has && blockStart !== -1) {
+          const div = document.createElement('div');
+          div.className = 'guide';
+          // ▼ CHANGED HERE: removed indentWidth * 0.5
+          div.style.left   = (padX + c * indentWidth + 2) + 'px';
+          div.style.top    = (padY + blockStart * lineHeight) + 'px';
+          div.style.height = ((i - blockStart) * lineHeight) + 'px';
+          frag.appendChild(div);
+          blockStart = -1;
+        }
+      }
+    }
+
+    guidesTrack.replaceChildren(frag);
+  }
+
+  /* ================================================================
    *  Rendering
    * ================================================================ */
   let renderQueued = false;
@@ -1088,6 +1219,7 @@
       lineNumbers.textContent = buf.join('\n');
     }
 
+    renderGuides();
     syncScroll();
     updateStatus();
     syncFileNameFromCode();
@@ -1097,6 +1229,8 @@
     highlight.scrollTop  = editor.scrollTop;
     highlight.scrollLeft = editor.scrollLeft;
     lineNumbers.style.transform = 'translateY(' + (-editor.scrollTop) + 'px)';
+    guidesTrack.style.transform =
+      'translate(' + (-editor.scrollLeft) + 'px, ' + (-editor.scrollTop) + 'px)';
   }
 
   function updateStatus() {
@@ -1137,7 +1271,7 @@
   }
 
   /* ================================================================
-   *  Edit helper — keeps native undo stack alive via execCommand
+   *  Edit helper
    * ================================================================ */
   function applyEdit(start, end, text, selStart, selEnd) {
     if (start === end && text === '') return;
@@ -1235,7 +1369,7 @@
     transformLines(line => {
       if (!shift) return { text: INDENT + line, pos: 0, delta: INDENT.length };
 
-      const m = line.match(/^(\t| {1,4})/);
+      const m = line.match(/^(\t| {1,2})/);
       if (!m) return { text: line, pos: 0, delta: 0 };
       return { text: line.slice(m[0].length), pos: 0, delta: -m[0].length };
     });
@@ -1335,7 +1469,7 @@
   }
 
   /* ================================================================
-   *  Keyboard handling in the editor
+   *  Keyboard handling
    * ================================================================ */
   editor.addEventListener('keydown', e => {
     if (e.isComposing) return;
@@ -1347,11 +1481,7 @@
 
     if (mod && !e.altKey) {
       const k = e.key.toLowerCase();
-      if (k === 's') {
-        e.preventDefault();
-        save(e.shiftKey);
-        return;
-      }
+      if (k === 's') { e.preventDefault(); save(e.shiftKey); return; }
       if (k === 'd') { e.preventDefault(); duplicateLine();   return; }
       if (e.key === '/') { e.preventDefault(); toggleComment(); return; }
     }
@@ -1392,7 +1522,6 @@
 
     if (OPENERS[e.key] && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
-
       const close    = OPENERS[e.key];
       const selected = val.slice(s, en);
 
@@ -1486,6 +1615,15 @@
     }
   });
 
+  guidesBtn.addEventListener('click', () => {
+    state.guides = !state.guides;
+    editorShell.classList.toggle('no-guides', !state.guides);
+    guidesBtn.classList.toggle('on', state.guides);
+    guidesBtn.title = state.guides ? 'Hide indent guides' : 'Show indent guides';
+    renderGuides();
+    saveState();
+  });
+
   themeBtn.addEventListener('click', () => {
     setTheme(state.theme === 'dark' ? 'light' : 'dark');
   });
@@ -1510,6 +1648,7 @@
   function setFontSize(px) {
     state.fontSize = Math.max(11, Math.min(28, px));
     document.documentElement.style.setProperty('--font-size', state.fontSize + 'px');
+    charWidthCache.width = 0;
     queueRender();
     saveState();
   }
@@ -1531,7 +1670,8 @@
         fileName: fileNameInput.value,
         autoFileName: !userEditedFileName,
         fontSize: state.fontSize,
-        theme: state.theme
+        theme: state.theme,
+        guides: state.guides
       }));
     } catch (err) { /* ignore */ }
   }
@@ -1547,6 +1687,7 @@
       userEditedFileName = saved.autoFileName === false;
       state.fontSize = saved.fontSize || 15;
       state.theme = saved.theme || 'dark';
+      state.guides = saved.guides !== false;
     } else {
       editor.value = DEFAULT_CODE;
       userEditedFileName = false;
@@ -1554,6 +1695,11 @@
 
     document.documentElement.style.setProperty('--font-size', state.fontSize + 'px');
     setTheme(state.theme);
+
+    editorShell.classList.toggle('no-guides', !state.guides);
+    guidesBtn.classList.toggle('on', state.guides);
+    guidesBtn.title = state.guides ? 'Hide indent guides' : 'Show indent guides';
+
     updateAutoBadge();
     render();
     markSaved();
